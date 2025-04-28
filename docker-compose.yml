@@ -1,12 +1,14 @@
+version: "3.8"
+
 services:
   app:
     build: .
     ports:
-      - "5000:5000"
+      - "5012:5012"
     environment:
       - NODE_ENV=development
       - JWT_SECRET=devSecret123
-      - DATABASE_URL=postgres://postgres:postgres@db:554/todos
+      - DATABASE_URL=postgres://postgres:postgres@db:5012/todos
     volumes:
       - .:/usr/src/app
       - /usr/src/app/node_modules
@@ -17,7 +19,7 @@ services:
   db:
     image: postgres:15-alpine
     ports:
-      - "5454:5454"
+      - "5012:5012"
     environment:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
