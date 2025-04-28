@@ -1,16 +1,21 @@
+# Use Node.js LTS version
 FROM node:18-alpine
 
+# Create app directory
 WORKDIR /usr/src/app
 
-# تعطيل Husky لتجنب أخطاء الإعداد
-ENV HUSKY=0
+# Install PostgreSQL client
+RUN apk add --no-cache postgresql-client
 
-# تثبيت التبعيات
+# Install app dependencies
 COPY package*.json ./
-RUN npm install --production --ignore-scripts
+RUN npm install --production
 
-# نسخ ملفات المشروع
+# Copy app source
 COPY . .
 
+# Environment variables will be set in Portainer
 EXPOSE 5000
-CMD ["npm", "run", "server"]
+
+# Start the app
+CMD ["npx", "nodemon", "server.js"]
