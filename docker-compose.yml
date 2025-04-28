@@ -11,4 +11,4 @@ services:
       - JWT_SECRET=devSecret123
     volumes:
       - .:/usr/src/app
-    command: npm run server
+      - /usr/src/app/node_modules
