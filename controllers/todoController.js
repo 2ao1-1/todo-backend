@@ -21,7 +21,7 @@ const createTodo = async (req, res) => {
     };
 
     // Add image if uploaded
-    if (req.file) {
+    if (req.file && req.file.path && req.file.filename) {
       todoData.image = req.file.path;
       todoData.imagePublicId = req.file.filename;
     }
@@ -30,28 +30,29 @@ const createTodo = async (req, res) => {
     const todo = await Todo.create(todoData);
 
     // Create tasks if provided
-    if (tasks.length > 0) {
+    if (tasks && tasks.length > 0) {
       const parsedTasks = typeof tasks === "string" ? JSON.parse(tasks) : tasks;
 
-      const taskPromises = parsedTasks.map((task, index) => {
+      const taskPromises = parsedTasks.map((taskItem, index) => {
         return Task.create({
-          text: task.text,
-          completed: task.completed || false,
-          order: index,
+          text: taskItem.text,
+          completed: taskItem.completed || false,
+          order: taskItem.order !== undefined ? taskItem.order : index,
           todoId: todo.id,
         });
       });
-
       await Promise.all(taskPromises);
-      await todo.reload({ include: ["tasks"] });
     }
 
     // Calculate completion status
+    await todo.reload({ include: [{ model: Task, as: "tasks" }] });
     const todoObj = todo.toJSON();
+
     todoObj.completionPercentage = await todo.getCompletionPercentage();
 
     res.status(201).json(todoObj);
   } catch (error) {
+    console.error("Error in createTodo:", error);
     res.status(500).json({ message: error.message });
   }
 };
@@ -116,41 +117,67 @@ const getTodoById = async (req, res) => {
 // @access  Private
 const updateTodo = async (req, res) => {
   try {
-    const { title, icon } = req.body;
+    const { todoId } = req.params;
+    const userId = req.user.id;
 
-    const todo = await Todo.findByPk(req.params.id, {
-      include: ["tasks"],
-    });
+    const todo = await Todo.findOne({ where: { id: todoId, userId } });
 
     if (!todo) {
-      return res.status(404).json({ message: "Todo not found" });
+      return res
+        .status(404)
+        .json({ message: "Todo not found or user not authorized" });
     }
 
-    if (todo.userId !== req.user.id) {
-      return res.status(401).json({ message: "Not authorized" });
-    }
+    const { title, icon, completed } = req.body;
+    const updatedData = {};
 
-    if (title) todo.title = title;
-    if (icon !== undefined) todo.icon = icon;
+    if (title !== undefined) updatedData.title = title;
+    if (icon !== undefined) updatedData.icon = icon;
+    if (completed !== undefined) updatedData.completed = completed;
 
-    // Update image if uploaded new one
-    if (req.file) {
-      // Delete old image from Cloudinary if exists
+    // Handle image update
+    if (req.file && req.file.path && req.file.filename) {
+      // New image uploaded, delete old one if exists
       if (todo.imagePublicId) {
-        await cloudinary.uploader.destroy(todo.imagePublicId);
+        try {
+          await cloudinary.uploader.destroy(todo.imagePublicId);
+        } catch (cloudinaryError) {
+          console.error(
+            "Cloudinary: Failed to delete old image during update -",
+            cloudinaryError.message
+          );
+          // Continue with update, but log the error
+        }
       }
-
-      todo.image = req.file.path;
-      todo.imagePublicId = req.file.filename;
+      updatedData.imageUrl = req.file.path;
+      updatedData.imagePublicId = req.file.filename;
+    } else if (req.body.imageUrl === "" || req.body.imageUrl === null) {
+      // Image removal requested (e.g., client sends empty imageUrl)
+      if (todo.imagePublicId) {
+        try {
+          await cloudinary.uploader.destroy(todo.imagePublicId);
+          updatedData.imagePublicId = null;
+        } catch (cloudinaryError) {
+          console.error(
+            "Cloudinary: Failed to delete image during removal -",
+            cloudinaryError.message
+          );
+          // Continue, but log the error
+        }
+      }
+      updatedData.imageUrl = null;
     }
 
-    await todo.save();
+    await todo.update(updatedData);
 
+    await todo.reload({ include: [{ model: Task, as: "tasks" }] });
     const todoObj = todo.toJSON();
+
     todoObj.completionPercentage = await todo.getCompletionPercentage();
 
     res.json(todoObj);
   } catch (error) {
+    console.error("Error in updateTodo:", error);
     res.status(500).json({ message: error.message });
   }
 };
@@ -160,30 +187,38 @@ const updateTodo = async (req, res) => {
 // @access  Private
 const deleteTodo = async (req, res) => {
   try {
-    const todo = await Todo.findByPk(req.params.id);
+    const { todoId } = req.params;
+    const userId = req.user.id;
+
+    const todo = await Todo.findOne({ where: { id: todoId, userId } });
 
     if (!todo) {
-      return res.status(404).json({ message: "Todo not found" });
+      return res
+        .status(404)
+        .json({ message: "Todo not found or user not authorized" });
     }
 
-    if (todo.userId !== req.user.id) {
-      return res.status(401).json({ message: "Not authorized" });
-    }
-
-    // Delete image from Cloudinary if exists
+    // If the todo has an image, delete it from Cloudinary
     if (todo.imagePublicId) {
-      await cloudinary.uploader.destroy(todo.imagePublicId);
+      try {
+        await cloudinary.uploader.destroy(todo.imagePublicId);
+      } catch (cloudinaryError) {
+        console.error(
+          "Cloudinary: Failed to delete image during todo deletion -",
+          cloudinaryError.message
+        );
+      }
     }
 
-    // Delete all tasks
     await Task.destroy({ where: { todoId: todo.id } });
-
-    // Delete todo
     await todo.destroy();
 
-    res.json({ message: "Todo deleted" });
+    res.json({ message: "Todo and associated tasks removed" });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error("Error in deleteTodo:", error);
+    res
+      .status(500)
+      .json({ message: "Failed to delete todo", error: error.message });
   }
 };
 
@@ -245,55 +280,38 @@ const addTask = async (req, res) => {
 // @access  Private
 const updateTask = async (req, res) => {
   try {
-    const { text, completed, order } = req.body;
+    const { todoId, taskId } = req.params;
+    const userId = req.user.id;
 
-    const todo = await Todo.findByPk(req.params.id, {
-      include: ["tasks"],
-    });
-
+    // Verify user owns the parent Todo
+    const todo = await Todo.findOne({ where: { id: todoId, userId } });
     if (!todo) {
-      return res.status(404).json({ message: "Todo not found" });
-    }
-
-    if (todo.userId !== req.user.id) {
-      return res.status(401).json({ message: "Not authorized" });
+      return res
+        .status(404)
+        .json({ message: "Todo not found or user not authorized" });
     }
 
     const task = await Task.findOne({
-      where: {
-        id: req.params.taskId,
-        todoId: todo.id,
-      },
+      where: { id: taskId, todoId: todo.id }, // Ensure task belongs to the specified todo
     });
 
     if (!task) {
       return res.status(404).json({ message: "Task not found" });
     }
 
+    const { text, completed, order } = req.body;
+
     if (text !== undefined) task.text = text;
     if (completed !== undefined) task.completed = completed;
-    if (order !== undefined) task.order = order;
+    if (order !== undefined) task.order = order; // Update task order
 
     await task.save();
-
-    // Check if all tasks are completed to update todo's completed status
-    const allTasks = await todo.getTasks();
-    const allCompleted =
-      allTasks.length > 0 && allTasks.every((t) => t.completed);
-
-    if (todo.completed !== allCompleted) {
-      todo.completed = allCompleted;
-      await todo.save();
-    }
-
-    await todo.reload({ include: ["tasks"] });
-
-    const todoObj = todo.toJSON();
-    todoObj.completionPercentage = await todo.getCompletionPercentage();
-
-    res.json(todoObj);
+    res.json(task);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error("Error in updateTask:", error);
+    res
+      .status(500)
+      .json({ message: "Failed to update task", error: error.message });
   }
 };
 
