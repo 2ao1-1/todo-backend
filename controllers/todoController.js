@@ -22,7 +22,7 @@ const createTodo = async (req, res) => {
 
     // Add image if uploaded
     if (req.file) {
-      todoData.imageUrl = req.file.path;
+      todoData.image = req.file.path;
       todoData.imagePublicId = req.file.filename;
     }
 
@@ -140,7 +140,7 @@ const updateTodo = async (req, res) => {
         await cloudinary.uploader.destroy(todo.imagePublicId);
       }
 
-      todo.imageUrl = req.file.path;
+      todo.image = req.file.path;
       todo.imagePublicId = req.file.filename;
     }
 
