@@ -31,7 +31,9 @@ const createTodo = async (req, res) => {
 
     // Create tasks if provided
     if (tasks.length > 0) {
-      const taskPromises = tasks.map((task, index) => {
+      const parsedTasks = typeof tasks === "string" ? JSON.parse(tasks) : tasks;
+
+      const taskPromises = parsedTasks.map((task, index) => {
         return Task.create({
           text: task.text,
           completed: task.completed || false,
