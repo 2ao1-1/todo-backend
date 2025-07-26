@@ -1,31 +1,44 @@
 version: "3.8"
 
 services:
+  db:
+    image: postgres:15-alpine
+    container_name: todo-db
+    environment:
+      POSTGRES_DB: todo_db
+      POSTGRES_USER: todo_user
+      POSTGRES_PASSWORD: todo_password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5013:5013"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U todo_user -d todo_db"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
   app:
     build: .
+    container_name: todo-app
     ports:
       - "5012:5012"
     environment:
-      - NODE_ENV=development
-      - JWT_SECRET=devSecret123
-      - DATABASE_URL=postgres://postgres:postgres@db:5012/todos
+      NODE_ENV: production
+      PORT: 5012
+      JWT_SECRET: your_super_secret_jwt_key_here_make_it_long_and_secure
+      DB_NAME: todo_db
+      DB_USER: todo_user
+      DB_PASSWORD: todo_password
+      DB_HOST: db
+      DB_PORT: 5013
+    depends_on:
+      db:
+        condition: service_healthy
     volumes:
       - .:/usr/src/app
       - /usr/src/app/node_modules
-    depends_on:
-      - db
-    command: npm run server
-
-  db:
-    image: postgres:15-alpine
-    ports:
-      - "5012:5012"
-    environment:
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
-      - POSTGRES_DB=todos
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
+    command: npm start
 
 volumes:
   postgres_data:
