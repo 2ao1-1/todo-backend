@@ -1,35 +1,41 @@
 {
   "name": "todo-backend",
   "version": "1.0.0",
-  "description": "Todo List Api",
+  "description": "Backend for Todo List Application using SQLite",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js",
+   "start": "node server.js",
     "server": "nodemon server.js",
     "data:import": "node seeder.js -i",
-    "data:destroy": "node seeder.js -d"
+    "data:destroy": "node seeder.js -d",
+    "lint": "eslint .",
+    "test": "echo \"No tests specified\" && exit 0",
+    "build": "echo \"No build step configured\" && exit 0"
   },
   "dependencies": {
-    "bcryptjs": "^2.4.3",
+    "bcryptjs": "^3.0.2",
     "cloudinary": "^1.41.3",
     "cors": "^2.8.5",
-    "dotenv": "^16.3.1",
-    "express": "^4.18.2",
+    "dotenv": "^16.5.0",
+    "express": "^5.1.0",
     "jsonwebtoken": "^9.0.2",
+    "multer": "^1.4.5-lts.2",
     "multer-storage-cloudinary": "^4.0.0",
     "pg": "^8.11.3",
-    "pg-hstore": "^2.3.4",
-    "sequelize": "^6.35.0"
+    "sequelize": "^6.37.7",
+    "sqlite3": "^5.1.7"
   },
   "devDependencies": {
-    "nodemon": "^3.0.1"
+    "eslint": "^8.57.1",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-prettier": "^5.2.6",
+    "husky": "^9.1.7",
+    "nodemon": "^3.1.9",
+    "prettier": "^3.5.3",
+    "supertest": "^6.3.4"
   },
-  "keywords": [
-    "todo",
-    "api",
-    "express",
-    "sequelize"
-  ],
+  "keywords": [],
   "author": "Ahmed Omran",
-  "license": "ISC"
+  "license": "ISC",
+  "type": "commonjs"
 }
