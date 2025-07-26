@@ -5,7 +5,8 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "server": "nodemon server.js",
+    "dev": "nodemon server.js",
+    "server": "node server.js",
     "data:import": "node seeder",
     "data:destroy": "node seeder -d",
     "lint": "eslint .",
@@ -26,6 +27,7 @@
     "jsonwebtoken": "^9.0.2",
     "multer": "^1.4.5-lts.2",
     "multer-storage-cloudinary": "^4.0.0",
+    "pg": "^8.16.3",
     "sequelize": "^6.37.7",
     "sqlite3": "^5.1.7"
   },

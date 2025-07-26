@@ -6,10 +6,12 @@ WORKDIR /usr/src/app
 
 # Install PostgreSQL client
 RUN apk add --no-cache postgresql-client
+RUN npm install -g nodemon
+
 
 # Install app dependencies
 COPY package*.json ./
-RUN npm install --omit=dev
+RUN npm install --omit=dev --ignore-scripts
 
 # Copy app source
 COPY . .
