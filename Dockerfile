@@ -9,7 +9,7 @@ RUN apk add --no-cache postgresql-client
 
 # Install app dependencies
 COPY package*.json ./
-RUN npm install --production
+RUN npm install --omit=dev
 
 # Copy app source
 COPY . .
