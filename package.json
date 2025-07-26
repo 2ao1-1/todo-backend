@@ -11,7 +11,7 @@
     "lint": "eslint .",
     "test": "echo \"No tests specified\" && exit 0",
     "build": "echo \"No build step configured\" && exit 0",
-    "prepare": "husky install"
+    "prepare": "[ \"$NODE_ENV\" != \"production\" ] && husky install"
   },
   "keywords": [],
   "author": "",
