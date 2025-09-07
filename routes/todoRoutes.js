@@ -14,23 +14,33 @@ const { upload } = require("../config/cloudinary");
 
 const router = express.Router();
 
-// Todo routes
+// @route   GET /api/todos
+// @route   POST /api/todos
+// @access  Private
 router
   .route("/")
   .get(protect, getTodos)
   .post(protect, upload.single("image"), createTodo);
 
+// @route   GET /api/todos/:todoId
+// @route   PUT /api/todos/:todoId
+// @route   DELETE /api/todos/:todoId
+// @access  Private
 router
-  .route("/:id")
+  .route("/:todoId")
   .get(protect, getTodoById)
   .put(protect, upload.single("image"), updateTodo)
   .delete(protect, deleteTodo);
 
-// Task routes
-router.route("/:id/tasks").post(protect, addTask);
+// @route   POST /api/todos/:todoId/tasks
+// @access  Private
+router.post("/:todoId/tasks", protect, addTask);
 
+// @route   PUT /api/todos/:todoId/tasks/:taskId
+// @route   DELETE /api/todos/:todoId/tasks/:taskId
+// @access  Private
 router
-  .route("/:id/tasks/:taskId")
+  .route("/:todoId/tasks/:taskId")
   .put(protect, updateTask)
   .delete(protect, deleteTask);
 

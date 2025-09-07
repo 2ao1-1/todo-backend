@@ -8,41 +8,47 @@ const User = sequelize.define(
     name: {
       type: DataTypes.STRING,
       allowNull: false,
+      trim: true,
     },
     email: {
       type: DataTypes.STRING,
       allowNull: false,
       unique: true,
       validate: {
-        isEmail: true,
+        isEmail: {
+          msg: "Please provide a valid email",
+        },
       },
     },
     password: {
       type: DataTypes.STRING,
       allowNull: false,
+      validate: {
+        len: {
+          args: [6, 100],
+          msg: "Password must be at least 6 characters long",
+        },
+      },
     },
   },
   {
     timestamps: true,
+    tableName: "users",
   }
 );
 
-// validate password
 User.prototype.matchPassword = async function (enteredPassword) {
-  return await bcrypt.compare(enteredPassword, this.password);
+  return bcrypt.compare(enteredPassword, this.password);
 };
 
-// hash password
-User.beforeCreate(async (user) => {
-  const salt = await bcrypt.genSalt(10);
-  user.password = await bcrypt.hash(user.password, salt);
-});
-
-User.beforeUpdate(async (user) => {
+const hashPassword = async (user) => {
   if (user.changed("password")) {
     const salt = await bcrypt.genSalt(10);
     user.password = await bcrypt.hash(user.password, salt);
   }
-});
+};
+
+User.beforeCreate(hashPassword);
+User.beforeUpdate(hashPassword);
 
 module.exports = User;

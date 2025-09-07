@@ -7,6 +7,13 @@ const Task = sequelize.define(
     text: {
       type: DataTypes.STRING,
       allowNull: false,
+      validate: {
+        notEmpty: { msg: "Task text is required" },
+        len: {
+          args: [2, 255],
+          msg: "Task text must be between 2 and 255 characters",
+        },
+      },
     },
     completed: {
       type: DataTypes.BOOLEAN,
@@ -15,6 +22,9 @@ const Task = sequelize.define(
     order: {
       type: DataTypes.INTEGER,
       defaultValue: 0,
+      validate: {
+        min: { args: [0], msg: "Order cannot be negative" },
+      },
     },
     todoId: {
       type: DataTypes.INTEGER,
@@ -23,6 +33,7 @@ const Task = sequelize.define(
   },
   {
     timestamps: true,
+    tableName: "tasks",
   }
 );
 

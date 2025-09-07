@@ -11,6 +11,13 @@ const Todo = sequelize.define(
     title: {
       type: DataTypes.STRING,
       allowNull: false,
+      validate: {
+        notEmpty: { msg: "Title is required" },
+        len: {
+          args: [3, 100],
+          msg: "Title must be between 3 and 100 characters",
+        },
+      },
     },
     icon: {
       type: DataTypes.STRING,
@@ -27,6 +34,11 @@ const Todo = sequelize.define(
     imageUrl: {
       type: DataTypes.STRING,
       allowNull: true,
+      validate: {
+        isUrl: {
+          msg: "Image URL must be valid",
+        },
+      },
     },
     imagePublicId: {
       type: DataTypes.STRING,
@@ -35,22 +47,19 @@ const Todo = sequelize.define(
   },
   {
     timestamps: true,
+    tableName: "todos",
   }
 );
 
-// Get next sequential ID for a user
 Todo.getNextUserSequentialId = async function (userId) {
-  const maxId = await this.max("userSequentialId", {
-    where: { userId },
-  });
+  const maxId = await this.max("userSequentialId", { where: { userId } });
   return (maxId || 0) + 1;
 };
 
-// calculate completion percentage of the todo's tasks
 Todo.prototype.getCompletionPercentage = async function () {
   const tasks = await this.getTasks();
 
-  if (tasks.length === 0) return 0;
+  if (!tasks || tasks.length === 0) return 0;
 
   const completedTasks = tasks.filter((task) => task.completed).length;
   return Math.round((completedTasks / tasks.length) * 100);

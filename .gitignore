@@ -12,10 +12,12 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# Database
+# SQLite Database files
 *.sqlite
 *.sqlite3
 *.db
+database/
+# لو عايز ترفع الداتابيز مع الكود، احذف السطر اللي فوق
 
 # IDE and editor files
 .idea/
@@ -36,7 +38,7 @@ Thumbs.db
 .tmp/
 tmp/
 
-# Operating System
+# Operating System files
 .DS_Store
 .DS_Store?
 ._*
@@ -44,3 +46,18 @@ tmp/
 .Trashes
 ehthumbs.db
 Thumbs.db
+
+# Cloudinary uploads (if using local storage)
+uploads/
+
+# PM2 process files
+ecosystem.config.js
+.pm2/
+
+# Docker files (not needed for SQLite)
+docker-compose.yml
+Dockerfile
+
+# Backup files
+*.bak
+*.backup
