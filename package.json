@@ -5,8 +5,9 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "server": "nodemon server.js",
+    "build": "echo 'Build completed'",
     "dev": "nodemon server.js",
+    "server": "nodemon server.js",
     "data:import": "node seeder.js -i",
     "data:destroy": "node seeder.js -d",
     "data:reset": "node seeder.js -d && node seeder.js -i",
