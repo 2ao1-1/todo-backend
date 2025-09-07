@@ -46,4 +46,5 @@ const syncDatabase = async () => {
   }
 };
 
+///
 module.exports = { sequelize, testConnection, syncDatabase };
