@@ -11,8 +11,16 @@ const todoRoutes = require("./routes/todoRoutes");
 
 const app = express();
 
+// Check required environment variables
 if (!process.env.JWT_SECRET) {
   console.error("JWT_SECRET is not defined in environment variables");
+  if (process.env.NODE_ENV === "production") {
+    process.exit(1);
+  }
+}
+
+if (!process.env.DATABASE_URL) {
+  console.error("DATABASE_URL is not defined in environment variables");
   if (process.env.NODE_ENV === "production") {
     process.exit(1);
   }
@@ -26,7 +34,7 @@ if (process.env.NODE_ENV === "development") {
 
 app.use(
   cors({
-    origin: ["http://localhost:5173"],
+    origin: ["http://localhost:5173", "http://localhost:3000"],
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
     credentials: true,
@@ -48,19 +56,20 @@ app.get("/health", (req, res) => {
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
     environment: process.env.NODE_ENV || "production",
-    database: "SQLite",
+    database: "PostgreSQL",
     version: "1.0.0",
     vercel: process.env.VERCEL ? "yes" : "no",
+    database_connected: true,
   });
 });
 
 // Root
 app.get("/", (req, res) => {
   res.json({
-    message: "Todo Backend API with SQLite",
+    message: "Todo Backend API with PostgreSQL",
     version: "1.0.0",
     status: "running",
-    database: "SQLite",
+    database: "PostgreSQL",
     docs: "/api",
   });
 });
@@ -69,6 +78,7 @@ app.get("/", (req, res) => {
 app.get("/api", (req, res) => {
   res.json({
     message: "Todo API Endpoints",
+    database: "PostgreSQL",
     endpoints: {
       auth: {
         register: "POST /api/auth/register",
@@ -91,7 +101,7 @@ app.get("/api", (req, res) => {
   });
 });
 
-// Error handling
+// Error handling middleware
 app.use((err, req, res) => {
   console.error("Error:", err.stack);
 
@@ -107,6 +117,17 @@ app.use((err, req, res) => {
     return res.status(400).json({
       message: "Duplicate entry",
       field: err.errors[0]?.path || "unknown",
+    });
+  }
+
+  if (err.name === "SequelizeConnectionError") {
+    console.error("Database connection error:", err.message);
+    return res.status(500).json({
+      message: "Database connection failed",
+      error:
+        process.env.NODE_ENV === "development"
+          ? err.message
+          : "Database unavailable",
     });
   }
 
@@ -127,6 +148,7 @@ app.use((err, req, res) => {
   });
 });
 
+// 404 handler
 app.use((req, res) => {
   res.status(404).json({
     message: "Route not found",
@@ -141,16 +163,18 @@ const initializeDatabase = async () => {
   if (isInitialized) return;
 
   try {
+    console.log("Initializing PostgreSQL database...");
     await testConnection();
     await syncDatabase();
     isInitialized = true;
-    console.log("Database initialized successfully");
+    console.log("PostgreSQL database initialized successfully");
   } catch (error) {
     console.error("Database initialization failed:", error.message);
     throw error;
   }
 };
 
+// Vercel serverless handler
 const handler = async (req, res) => {
   try {
     await initializeDatabase();
@@ -158,12 +182,16 @@ const handler = async (req, res) => {
   } catch (error) {
     console.error("Handler error:", error);
     return res.status(500).json({
-      message: "Internal server error",
-      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+      message: "Database initialization failed",
+      error:
+        process.env.NODE_ENV === "development"
+          ? error.message
+          : "Internal server error",
     });
   }
 };
 
+// For local development
 if (process.env.NODE_ENV !== "production" || !process.env.VERCEL) {
   const PORT = process.env.PORT || 5000;
 
@@ -173,7 +201,7 @@ if (process.env.NODE_ENV !== "production" || !process.env.VERCEL) {
 
       const server = app.listen(PORT, () => {
         console.log(`Server running on http://localhost:${PORT}`);
-        console.log(`Database: SQLite`);
+        console.log(`Database: PostgreSQL`);
         console.log(`Env: ${process.env.NODE_ENV || "development"}`);
         console.log(`Docs: http://localhost:${PORT}/api`);
       });
