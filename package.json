@@ -1,7 +1,7 @@
 {
   "name": "todo-backend",
   "version": "1.0.0",
-  "description": "Backend for Todo List Application using SQLite",
+  "description": "Backend for Todo List Application using PostgreSQL",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
@@ -13,9 +13,9 @@
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "test": "echo \"No tests specified\" && exit 0",
-    "build": "echo \"Build completed - SQLite database will be created automatically\"",
+    "build": "echo \"Build completed - PostgreSQL database ready\"",
     "db:migrate": "node -e \"require('./config/db').syncDatabase().then(() => process.exit(0)).catch(err => {console.error(err); process.exit(1);})\"",
-    "db:reset": "rm -f database/todo.sqlite && npm run db:migrate && npm run data:import"
+    "db:reset": "npm run data:destroy && npm run data:import"
   },
   "dependencies": {
     "bcryptjs": "^3.0.2",
@@ -29,8 +29,7 @@
     "multer": "^1.4.5-lts.2",
     "multer-storage-cloudinary": "^4.0.0",
     "pg": "^8.16.3",
-    "sequelize": "^6.37.7",
-    "sqlite3": "^5.1.7"
+    "sequelize": "^6.37.7"
   },
   "devDependencies": {
     "eslint": "^8.57.1",
@@ -44,7 +43,7 @@
   "keywords": [
     "todo",
     "api",
-    "sqlite",
+    "postgresql",
     "express",
     "node",
     "sequelize",

@@ -1,15 +1,10 @@
 const { Sequelize } = require("sequelize");
+const path = require("path");
 require("dotenv").config();
 
-// Use DATABASE_URL from Neon
-const sequelize = new Sequelize(process.env.DATABASE_URL, {
-  dialect: "postgres",
-  dialectOptions: {
-    ssl: {
-      require: true,
-      rejectUnauthorized: false,
-    },
-  },
+const sequelize = new Sequelize({
+  dialect: "sqlite",
+  storage: path.join(__dirname, "..", "database", "todo.sqlite"),
   logging: process.env.NODE_ENV === "development",
   define: {
     timestamps: true,
@@ -26,9 +21,13 @@ const sequelize = new Sequelize(process.env.DATABASE_URL, {
 const testConnection = async () => {
   try {
     await sequelize.authenticate();
-    console.log("PostgreSQL connection established successfully");
+
+    const fs = require("fs");
+    const dbDir = path.join(__dirname, "..", "database");
+    if (!fs.existsSync(dbDir)) {
+      fs.mkdirSync(dbDir, { recursive: true });
+    }
   } catch (error) {
-    console.error("Unable to connect to database:", error.message);
     process.exit(1);
   }
 };
@@ -39,7 +38,6 @@ const syncDatabase = async () => {
       force: false,
       alter: process.env.NODE_ENV === "development",
     });
-    console.log("Database sync completed");
   } catch (error) {
     console.error("Database sync failed:", error.message);
     throw error;
