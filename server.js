@@ -11,6 +11,13 @@ const todoRoutes = require("./routes/todoRoutes");
 
 const app = express();
 
+if (!process.env.JWT_SECRET) {
+  console.error("JWT_SECRET is not defined in environment variables");
+  if (process.env.NODE_ENV === "production") {
+    process.exit(1);
+  }
+}
+
 // Middleware
 app.use(helmet());
 if (process.env.NODE_ENV === "development") {
@@ -21,7 +28,7 @@ app.use(
   cors({
     origin:
       process.env.NODE_ENV === "production"
-        ? ["https://yourdomain.com"]
+        ? ["https://yourdomain.com", "https://your-vercel-app.vercel.app"]
         : [
             "http://localhost:3000",
             "http://localhost:3001",
@@ -47,6 +54,7 @@ app.get("/health", (req, res) => {
     environment: process.env.NODE_ENV || "development",
     database: "SQLite",
     version: "1.0.0",
+    vercel: process.env.VERCEL ? "yes" : "no",
   });
 });
 
@@ -88,7 +96,7 @@ app.get("/api", (req, res) => {
 });
 
 // Error handling
-app.use((err, req, res) => {
+app.use((err, req, res, next) => {
   console.error("Error:", err.stack);
 
   if (err.name === "SequelizeValidationError") {
@@ -123,7 +131,6 @@ app.use((err, req, res) => {
   });
 });
 
-// 404
 app.use((req, res) => {
   res.status(404).json({
     message: "Route not found",
@@ -132,39 +139,72 @@ app.use((req, res) => {
   });
 });
 
-const PORT = process.env.PORT || 5000;
+let isInitialized = false;
 
-const Server = async () => {
+const initializeDatabase = async () => {
+  if (isInitialized) return;
+
   try {
     await testConnection();
     await syncDatabase();
-
-    const server = app.listen(PORT, () => {
-      console.log(`Server running on http://localhost:${PORT}`);
-      console.log(`Database: SQLite`);
-      console.log(`Env: ${process.env.NODE_ENV || "development"}`);
-      console.log(`Docs: http://localhost:${PORT}/api`);
-    });
-
-    server.on("error", (error) => {
-      if (error.code === "EADDRINUSE") {
-        console.error(`Port ${PORT} is already in use`);
-        process.exit(1);
-      } else {
-        console.error("Server error:", error);
-      }
-    });
+    isInitialized = true;
+    console.log("Database initialized successfully");
   } catch (error) {
-    console.error("Failed to start server:", error.message);
-    process.exit(1);
+    console.error("Database initialization failed:", error.message);
+    throw error;
   }
 };
 
+const handler = async (req, res) => {
+  try {
+    await initializeDatabase();
+    return app(req, res);
+  } catch (error) {
+    console.error("Handler error:", error);
+    return res.status(500).json({
+      message: "Internal server error",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+};
+
+if (process.env.NODE_ENV !== "production" || !process.env.VERCEL) {
+  const PORT = process.env.PORT || 5000;
+
+  const startServer = async () => {
+    try {
+      await initializeDatabase();
+
+      const server = app.listen(PORT, () => {
+        console.log(`Server running on http://localhost:${PORT}`);
+        console.log(`Database: SQLite`);
+        console.log(`Env: ${process.env.NODE_ENV || "development"}`);
+        console.log(`Docs: http://localhost:${PORT}/api`);
+      });
+
+      server.on("error", (error) => {
+        if (error.code === "EADDRINUSE") {
+          console.error(`Port ${PORT} is already in use`);
+          process.exit(1);
+        } else {
+          console.error("Server error:", error);
+        }
+      });
+    } catch (error) {
+      console.error("Failed to start server:", error.message);
+      process.exit(1);
+    }
+  };
+
+  startServer();
+}
+
 // Graceful shutdown
-const Shutdown = async () => {
+const shutdown = async () => {
   console.log("Shutting down gracefully...");
   try {
-    await require("./config/db").sequelize.close();
+    const { sequelize } = require("./config/db");
+    await sequelize.close();
     console.log("Database connection closed");
     process.exit(0);
   } catch (error) {
@@ -173,11 +213,12 @@ const Shutdown = async () => {
   }
 };
 
-process.on("SIGTERM", Shutdown);
-process.on("SIGINT", Shutdown);
+process.on("SIGTERM", shutdown);
+process.on("SIGINT", shutdown);
 process.on("unhandledRejection", (err) => {
   console.error("Unhandled Promise Rejection:", err);
-  Shutdown();
+  shutdown();
 });
 
-Server();
+// Export for Vercel
+module.exports = handler;
