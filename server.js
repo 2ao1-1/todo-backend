@@ -5,29 +5,33 @@ const morgan = require("morgan");
 const { testConnection, syncDatabase } = require("./config/db");
 require("dotenv").config();
 
-// Import routes
 const authRoutes = require("./routes/authRoutes");
 const todoRoutes = require("./routes/todoRoutes");
 
 const app = express();
 
-// Check required environment variables
-if (!process.env.JWT_SECRET) {
-  console.error("JWT_SECRET is not defined in environment variables");
-  if (process.env.NODE_ENV === "production") {
-    process.exit(1);
-  }
-}
+const validateEnvVars = () => {
+  const required = ["JWT_SECRET", "DATABASE_URL"];
+  const missing = required.filter((key) => !process.env[key]);
 
-if (!process.env.DATABASE_URL) {
-  console.error("DATABASE_URL is not defined in environment variables");
-  if (process.env.NODE_ENV === "production") {
-    process.exit(1);
+  if (missing.length > 0) {
+    console.error(
+      `Missing required environment variables: ${missing.join(", ")}`
+    );
+    if (process.env.NODE_ENV === "production") {
+      process.exit(1);
+    }
   }
-}
 
-// Middleware
+  if (!process.env.CLOUDINARY_CLOUD_NAME) {
+    console.warn("Cloudinary not configured - image uploads will fail");
+  }
+};
+
+validateEnvVars();
+
 app.use(helmet());
+
 if (process.env.NODE_ENV === "development") {
   app.use(morgan("dev"));
 }
@@ -44,16 +48,13 @@ app.use(
     credentials: true,
   })
 );
-app.use(cors({ origin: "*" }));
 
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
-// Routes
 app.use("/api/auth", authRoutes);
 app.use("/api/todos", todoRoutes);
 
-// Health check
 app.get("/health", (req, res) => {
   res.status(200).json({
     status: "healthy",
@@ -62,12 +63,9 @@ app.get("/health", (req, res) => {
     environment: process.env.NODE_ENV || "production",
     database: "PostgreSQL",
     version: "1.0.0",
-    vercel: process.env.VERCEL ? "yes" : "no",
-    database_connected: true,
   });
 });
 
-// Root
 app.get("/", (req, res) => {
   res.json({
     message: "Todo Backend API with PostgreSQL",
@@ -78,7 +76,6 @@ app.get("/", (req, res) => {
   });
 });
 
-// API info
 app.get("/api", (req, res) => {
   res.json({
     message: "Todo API Endpoints",
@@ -105,8 +102,7 @@ app.get("/api", (req, res) => {
   });
 });
 
-// Error handling middleware
-app.use((err, req, res) => {
+app.use((err, req, res, next) => {
   console.error("Error:", err.stack);
 
   if (err.name === "SequelizeValidationError") {
@@ -114,7 +110,10 @@ app.use((err, req, res) => {
       field: e.path,
       message: e.message,
     }));
-    return res.status(400).json({ message: "Validation Error", errors });
+    return res.status(400).json({
+      message: "Validation Error",
+      errors,
+    });
   }
 
   if (err.name === "SequelizeUniqueConstraintError") {
@@ -152,7 +151,6 @@ app.use((err, req, res) => {
   });
 });
 
-// 404 handler
 app.use((req, res) => {
   res.status(404).json({
     message: "Route not found",
@@ -162,23 +160,34 @@ app.use((req, res) => {
 });
 
 let isInitialized = false;
+let initializationPromise = null;
 
 const initializeDatabase = async () => {
-  if (isInitialized) return;
-
-  try {
-    console.log("Initializing PostgreSQL database...");
-    await testConnection();
-    await syncDatabase();
-    isInitialized = true;
-    console.log("PostgreSQL database initialized successfully");
-  } catch (error) {
-    console.error("Database initialization failed:", error.message);
-    throw error;
+  if (initializationPromise) {
+    return initializationPromise;
   }
+
+  if (isInitialized) {
+    return Promise.resolve();
+  }
+
+  initializationPromise = (async () => {
+    try {
+      console.log("Initializing PostgreSQL database...");
+      await testConnection();
+      await syncDatabase();
+      isInitialized = true;
+      console.log("PostgreSQL database initialized successfully");
+    } catch (error) {
+      console.error("Database initialization failed:", error.message);
+      initializationPromise = null;
+      throw error;
+    }
+  })();
+
+  return initializationPromise;
 };
 
-// Vercel serverless handler
 const handler = async (req, res) => {
   try {
     await initializeDatabase();
@@ -195,7 +204,6 @@ const handler = async (req, res) => {
   }
 };
 
-// For local development
 if (process.env.NODE_ENV !== "production" || !process.env.VERCEL) {
   const PORT = process.env.PORT || 5000;
 
@@ -206,7 +214,7 @@ if (process.env.NODE_ENV !== "production" || !process.env.VERCEL) {
       const server = app.listen(PORT, () => {
         console.log(`Server running on http://localhost:${PORT}`);
         console.log(`Database: PostgreSQL`);
-        console.log(`Env: ${process.env.NODE_ENV || "development"}`);
+        console.log(`Environment: ${process.env.NODE_ENV || "development"}`);
         console.log(`Docs: http://localhost:${PORT}/api`);
       });
 
@@ -227,7 +235,6 @@ if (process.env.NODE_ENV !== "production" || !process.env.VERCEL) {
   startServer();
 }
 
-// Graceful shutdown
 const shutdown = async () => {
   console.log("Shutting down gracefully...");
   try {
@@ -248,5 +255,4 @@ process.on("unhandledRejection", (err) => {
   shutdown();
 });
 
-// Export for Vercel
 module.exports = handler;
