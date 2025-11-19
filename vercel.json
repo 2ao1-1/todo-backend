@@ -15,7 +15,7 @@
   ],
   "headers": [
     {
-      "source": "/api/(.*)",
+      "source": "/(.*)",
       "headers": [
         {
           "key": "Access-Control-Allow-Credentials",
@@ -23,7 +23,7 @@
         },
         {
           "key": "Access-Control-Allow-Origin",
-          "value": "https://todo-list.2ao1.space"
+          "value": "*"
         },
         {
           "key": "Access-Control-Allow-Methods",

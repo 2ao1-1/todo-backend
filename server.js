@@ -39,7 +39,6 @@ const allowedOrigins = [
   "http://localhost:3000",
   "http://localhost:4200",
   "http://127.0.0.1:5173",
-
   "https://todo-list.2ao1.space",
   "https://todolistapi.2ao1.space",
   "https://www.todo-list.2ao1.space",
@@ -53,6 +52,7 @@ app.use(
       if (allowedOrigins.indexOf(origin) !== -1) {
         callback(null, true);
       } else {
+        console.log("CORS blocked origin:", origin);
         callback(new Error("Not allowed by CORS"));
       }
     },
@@ -72,7 +72,12 @@ app.use(
   })
 );
 
-app.options("*", cors());
+app.use((req, res, next) => {
+  if (req.method === "OPTIONS") {
+    return cors()(req, res, next);
+  }
+  next();
+});
 
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
