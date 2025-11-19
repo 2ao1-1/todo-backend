@@ -29,19 +29,16 @@ const allowedOrigins = [
   "http://localhost:4200",
   "http://127.0.0.1:5173",
   "https://todo-list.2ao1.space",
-  "https://todolistapi.2ao1.space",
   "https://www.todo-list.2ao1.space",
 ];
 
 app.use(
   cors({
     origin: function (origin, callback) {
-      if (!origin) return callback(null, true);
-
-      if (allowedOrigins.indexOf(origin) !== -1) {
-        callback(null, true);
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, origin || true);
       } else {
-        callback(null, true);
+        callback(new Error("Not allowed by CORS"));
       }
     },
     credentials: true,
@@ -53,9 +50,6 @@ app.use(
       "Accept",
       "Origin",
     ],
-    exposedHeaders: ["Content-Length", "X-Request-Id"],
-    optionsSuccessStatus: 204,
-    preflightContinue: false,
   })
 );
 
