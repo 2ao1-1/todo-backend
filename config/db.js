@@ -2,7 +2,6 @@ const { Sequelize } = require("sequelize");
 require("dotenv").config();
 
 if (!process.env.DATABASE_URL) {
-  console.error("DATABASE_URL is not defined in .env file");
   process.exit(1);
 }
 
@@ -34,11 +33,8 @@ const sequelize = new Sequelize(process.env.DATABASE_URL, {
 const testConnection = async () => {
   try {
     await sequelize.authenticate();
-    console.log("PostgreSQL connection established successfully");
     return true;
   } catch (error) {
-    console.error("Unable to connect to database:", error.message);
-
     if (process.env.NODE_ENV === "production") {
       process.exit(1);
     }
@@ -47,22 +43,12 @@ const testConnection = async () => {
 };
 
 const syncDatabase = async () => {
-  try {
-    await sequelize.sync({
-      force: false,
-      alter: process.env.NODE_ENV === "development",
-    });
-    console.log("Database schema synchronized");
+  await sequelize.sync({
+    force: false,
+    alter: process.env.NODE_ENV === "development",
+  });
 
-    if (process.env.NODE_ENV === "development") {
-      console.log("Development mode: Schema auto-updated");
-    }
-
-    return true;
-  } catch (error) {
-    console.error("Database sync failed:", error.message);
-    throw error;
-  }
+  return true;
 };
 
 const closeConnection = async () => {

@@ -15,39 +15,64 @@ const validateEnvVars = () => {
   const missing = required.filter((key) => !process.env[key]);
 
   if (missing.length > 0) {
-    console.error(
-      `Missing required environment variables: ${missing.join(", ")}`
-    );
     if (process.env.NODE_ENV === "production") {
       process.exit(1);
     }
-  }
-
-  if (!process.env.CLOUDINARY_CLOUD_NAME) {
-    console.warn("Cloudinary not configured - image uploads will fail");
   }
 };
 
 validateEnvVars();
 
-app.use(helmet());
+app.use(
+  helmet({
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+    crossOriginOpenerPolicy: { policy: "same-origin-allow-popups" },
+  })
+);
 
 if (process.env.NODE_ENV === "development") {
   app.use(morgan("dev"));
 }
 
+const allowedOrigins = [
+  "http://localhost:5173",
+  "http://localhost:3000",
+  "http://localhost:4200",
+  "http://127.0.0.1:5173",
+
+  "https://todo-list.2ao1.space",
+  "https://todolistapi.2ao1.space",
+  "https://www.todo-list.2ao1.space",
+];
+
 app.use(
   cors({
-    origin: [
-      "http://localhost:5173",
-      "http://localhost:3000",
-      "https://todo-list.2ao1.space",
+    origin: function (origin, callback) {
+      if (!origin) return callback(null, true);
+
+      if (allowedOrigins.indexOf(origin) !== -1) {
+        callback(null, true);
+      } else {
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    allowedHeaders: [
+      "Content-Type",
+      "Authorization",
+      "X-Requested-With",
+      "Accept",
+      "Origin",
     ],
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
+    exposedHeaders: ["Content-Length", "X-Request-Id"],
     credentials: true,
+    maxAge: 86400,
+    preflightContinue: false,
+    optionsSuccessStatus: 204,
   })
 );
+
+app.options("*", cors());
 
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
@@ -102,8 +127,13 @@ app.get("/api", (req, res) => {
   });
 });
 
-app.use((err, req, res, next) => {
-  console.error("Error:", err.stack);
+app.use((err, req, res, _next) => {
+  if (err.message === "Not allowed by CORS") {
+    return res.status(403).json({
+      message: "CORS policy: Origin not allowed",
+      origin: req.headers.origin,
+    });
+  }
 
   if (err.name === "SequelizeValidationError") {
     const errors = err.errors.map((e) => ({
@@ -124,7 +154,6 @@ app.use((err, req, res, next) => {
   }
 
   if (err.name === "SequelizeConnectionError") {
-    console.error("Database connection error:", err.message);
     return res.status(500).json({
       message: "Database connection failed",
       error:
@@ -173,13 +202,10 @@ const initializeDatabase = async () => {
 
   initializationPromise = (async () => {
     try {
-      console.log("Initializing PostgreSQL database...");
       await testConnection();
       await syncDatabase();
       isInitialized = true;
-      console.log("PostgreSQL database initialized successfully");
     } catch (error) {
-      console.error("Database initialization failed:", error.message);
       initializationPromise = null;
       throw error;
     }
@@ -193,7 +219,6 @@ const handler = async (req, res) => {
     await initializeDatabase();
     return app(req, res);
   } catch (error) {
-    console.error("Handler error:", error);
     return res.status(500).json({
       message: "Database initialization failed",
       error:
@@ -213,21 +238,15 @@ if (process.env.NODE_ENV !== "production" || !process.env.VERCEL) {
 
       const server = app.listen(PORT, () => {
         console.log(`Server running on http://localhost:${PORT}`);
-        console.log(`Database: PostgreSQL`);
-        console.log(`Environment: ${process.env.NODE_ENV || "development"}`);
-        console.log(`Docs: http://localhost:${PORT}/api`);
+        console.log(`http://localhost:${PORT}/api`);
       });
 
       server.on("error", (error) => {
         if (error.code === "EADDRINUSE") {
-          console.error(`Port ${PORT} is already in use`);
           process.exit(1);
-        } else {
-          console.error("Server error:", error);
         }
       });
     } catch (error) {
-      console.error("Failed to start server:", error.message);
       process.exit(1);
     }
   };
@@ -236,22 +255,18 @@ if (process.env.NODE_ENV !== "production" || !process.env.VERCEL) {
 }
 
 const shutdown = async () => {
-  console.log("Shutting down gracefully...");
   try {
     const { sequelize } = require("./config/db");
     await sequelize.close();
-    console.log("Database connection closed");
     process.exit(0);
   } catch (error) {
-    console.error("Error during shutdown:", error);
     process.exit(1);
   }
 };
 
 process.on("SIGTERM", shutdown);
 process.on("SIGINT", shutdown);
-process.on("unhandledRejection", (err) => {
-  console.error("Unhandled Promise Rejection:", err);
+process.on("unhandledRejection", (_err) => {
   shutdown();
 });
 
