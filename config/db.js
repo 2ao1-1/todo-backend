@@ -1,15 +1,13 @@
-const { sql } = require("@vercel/postgres");
 const { Sequelize } = require("sequelize");
 require("dotenv").config();
 
 if (!process.env.DATABASE_URL) {
-  console.error("DATABASE_URL is not defined");
   process.exit(1);
 }
 
 const sequelize = new Sequelize(process.env.DATABASE_URL, {
   dialect: "postgres",
-  dialectModule: require("pg"),
+
   dialectOptions: {
     ssl: {
       require: true,
@@ -18,6 +16,12 @@ const sequelize = new Sequelize(process.env.DATABASE_URL, {
   },
 
   logging: process.env.NODE_ENV === "development" ? console.log : false,
+
+  define: {
+    timestamps: true,
+    underscored: false,
+  },
+
   pool: {
     max: 5,
     min: 0,
