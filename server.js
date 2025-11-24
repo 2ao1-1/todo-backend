@@ -10,6 +10,19 @@ const todoRoutes = require("./routes/todoRoutes");
 
 const app = express();
 
+const corsOptions = {
+  origin: [
+    "https://todo-list.2ao1.space",
+    "http://localhost:3000",
+    "http://localhost:5173",
+    "https://todolistapi-2ao1.runasp.net",
+    "http://todolistapi-2ao1.runasp.net",
+  ],
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+};
+
 const validateEnvVars = () => {
   const required = ["JWT_SECRET", "DATABASE_URL"];
   const missing = required.filter((key) => !process.env[key]);
@@ -23,27 +36,7 @@ const validateEnvVars = () => {
 
 validateEnvVars();
 
-app.use(
-  cors({
-    origin: [
-      "http://localhost:5173",
-      "http://localhost:3000",
-      "http://localhost:4200",
-      "http://127.0.0.1:5173",
-      "https://todolistapi-2ao1.runasp.net",
-      "http://todolistapi-2ao1.runasp.net",
-    ],
-    credentials: true,
-    methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-    allowedHeaders: [
-      "Content-Type",
-      "Authorization",
-      "X-Requested-With",
-      "Accept",
-      "Origin",
-    ],
-  })
-);
+app.use(cors(corsOptions));
 
 app.use((req, res, next) => {
   const origin = req.headers.origin;
